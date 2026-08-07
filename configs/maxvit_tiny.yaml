@@ -1,0 +1,9 @@
+# configs/maxvit_tiny.yaml
+name: maxvit_tiny
+encoder_name: tu-maxvit_tiny_tf_224
+data_root: /kaggle/input/deepglobe-road-extraction-dataset/train
+subset_size: 400
+crop_size: 256
+batch_size: 16
+epochs: 6
+lr: 0.0003

@@ -1,0 +1,9 @@
+# configs/resnet18.yaml
+name: resnet18
+encoder_name: resnet18
+data_root: /kaggle/input/deepglobe-road-extraction-dataset/train
+subset_size: 400
+crop_size: 256
+batch_size: 16
+epochs: 6
+lr: 0.0003
