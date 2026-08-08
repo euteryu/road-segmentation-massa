@@ -29,6 +29,10 @@ amp: true          # mixed precision; ~2x faster on a T4, no accuracy cost here
 bce_weight: 0.3
 
 # --- evaluation ---------------------------------------------------------
-tile_overlap: 64   # overlap between sliding-window tiles at full-image eval
+# Error on this task is dominated by boundary placement on thin structures, not by
+# missed roads (see outputs/figures/*/example_median_*.png). Both of these attack
+# that, at inference cost only - no retraining.
+tile_overlap: 128  # overlap between sliding-window tiles; 25 -> 49 tiles per image
+tta: true          # average over the 8 square symmetries the training aug uses
 close_kernel: 5    # morphological closing kernel (post-processing)
 min_area: 64       # drop connected components smaller than this many pixels

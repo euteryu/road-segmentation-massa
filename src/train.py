@@ -131,6 +131,7 @@ def run_experiment(cfg: dict) -> dict:
     dump_predictions(
         model, full_loader, device, dirs["preds"],
         tile=cfg["crop_size"], overlap=cfg.get("tile_overlap", 64), amp=amp,
+        tta=cfg.get("tta", False),
     )
     infer_time = time.time() - infer_start
 
@@ -164,6 +165,8 @@ def run_experiment(cfg: dict) -> dict:
         "epochs": cfg["epochs"],
         "crop_size": cfg["crop_size"],
         "bce_weight": cfg.get("bce_weight", 0.3),
+        "tile_overlap": cfg.get("tile_overlap", 64),
+        "tta": cfg.get("tta", False),
         "train_time_sec": round(train_time, 1),
         "infer_time_sec": round(infer_time, 1),
         "best_val_iou_crop": round(best_iou, 4),

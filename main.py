@@ -79,6 +79,9 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="print the plan and exit")
     parser.add_argument("--epochs", type=int, help="override epochs (smoke tests)")
     parser.add_argument("--train-size", type=int, help="override train_size (smoke tests)")
+    # TTA is 8x inference over the FULL val set regardless of train_size, so a
+    # smoke test without this flag costs ~12 minutes and stops being a smoke test.
+    parser.add_argument("--no-tta", action="store_true", help="disable test-time augmentation (smoke tests)")
     args = parser.parse_args()
 
     if args.all:
@@ -92,6 +95,8 @@ def main():
             cfg["epochs"] = args.epochs
         if args.train_size is not None:
             cfg["train_size"] = args.train_size
+        if args.no_tta:
+            cfg["tta"] = False
 
     log.info(f"env: {env_summary()}")
     log.info(f"plan: {' -> '.join(c['name'] for c in configs)}")

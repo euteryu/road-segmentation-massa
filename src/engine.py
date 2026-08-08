@@ -109,8 +109,52 @@ def predict_tiled(model, image, device, tile=256, overlap=64, tile_batch=16, amp
     return (prob / count.clamp(min=1)).cpu()
 
 
+def _d4(x, k: int, mirror: bool):
+    """Rotate by k*90 degrees, then optionally mirror. Operates on the last two dims."""
+    y = torch.rot90(x, k, dims=(-2, -1))
+    return torch.flip(y, dims=(-1,)) if mirror else y
+
+
+def _d4_inverse(x, k: int, mirror: bool):
+    """Undo _d4 - mirror first, then rotate back, because the forward order was
+    rotate-then-mirror and these do not commute."""
+    y = torch.flip(x, dims=(-1,)) if mirror else x
+    return torch.rot90(y, -k, dims=(-2, -1))
+
+
 @torch.no_grad()
-def dump_predictions(model, loader, device, out_dir, tile=256, overlap=64, amp=True):
+def predict_tiled_tta(model, image, device, tile=256, overlap=64, amp=True, tta=True):
+    """predict_tiled averaged over the 8 symmetries of the square.
+
+    These are exactly the symmetries get_train_transform samples from, so every
+    view is in-distribution for the model - averaging over a transform it never
+    trained on would add noise rather than remove it.
+
+    The reason this is worth 8x inference on this task specifically: error here is
+    dominated by boundary placement on thin structures, and boundary noise is
+    largely uncorrelated between orientations, so it averages down. Detection
+    errors (a road missed in every orientation) are not helped.
+    """
+    if not tta:
+        return predict_tiled(model, image, device, tile=tile, overlap=overlap, amp=amp)
+
+    _, height, width = image.shape
+    if height != width:
+        raise ValueError(f"TTA rotations assume a square image, got {height}x{width}")
+
+    acc = None
+    for k in range(4):
+        for mirror in (False, True):
+            prob = predict_tiled(
+                model, _d4(image, k, mirror), device, tile=tile, overlap=overlap, amp=amp
+            )
+            back = _d4_inverse(prob, k, mirror)
+            acc = back if acc is None else acc + back
+    return acc / 8.0
+
+
+@torch.no_grad()
+def dump_predictions(model, loader, device, out_dir, tile=256, overlap=64, amp=True, tta=False):
     """Run full-image inference once and write probability maps to disk as 8-bit
     PNGs.
 
@@ -126,9 +170,12 @@ def dump_predictions(model, loader, device, out_dir, tile=256, overlap=64, amp=T
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
 
-    for images, _masks, ids in tqdm(loader, desc="full-image inference", leave=False):
+    desc = "full-image inference" + (" (8x TTA)" if tta else "")
+    for images, _masks, ids in tqdm(loader, desc=desc, leave=False):
         for image, img_id in zip(images, ids):
-            prob = predict_tiled(model, image, device, tile=tile, overlap=overlap, amp=amp)
+            prob = predict_tiled_tta(
+                model, image, device, tile=tile, overlap=overlap, amp=amp, tta=tta
+            )
             arr = (prob.numpy() * 255).round().astype(np.uint8)
             cv2.imwrite(str(out_dir / f"{img_id}.png"), arr)
             written.append(img_id)
