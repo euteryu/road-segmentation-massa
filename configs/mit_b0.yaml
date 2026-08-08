@@ -1,9 +1,6 @@
 # configs/mit_b0.yaml
+# Fixed-budget architecture sweep (400 images / 6 epochs). Kept so the original
+# comparison stays reproducible.
 name: mit_b0
+arch: unet
 encoder_name: mit_b0
-data_root: /kaggle/input/deepglobe-road-extraction-dataset/train
-subset_size: 400
-crop_size: 256
-batch_size: 16
-epochs: 6
-lr: 0.0003

@@ -1,0 +1,32 @@
+# configs/_base.yaml
+# Shared defaults. Every other config in this folder is layered on top of this,
+# so a change that should apply everywhere is a one-line edit here.
+
+data_root: /kaggle/input/deepglobe-road-extraction-dataset/train
+seed: 42
+
+# --- data ---------------------------------------------------------------
+# val_size is held out FIRST and is identical for every run, so runs with
+# different train_size remain directly comparable. train_size is the number of
+# TRAINING images (it used to be the total, including val - not the same thing).
+val_size: 200
+train_size: 400
+crop_size: 256
+batch_size: 16
+num_workers: 2
+
+# --- optimisation -------------------------------------------------------
+epochs: 6
+lr: 0.0003
+weight_decay: 0.0001
+amp: true          # mixed precision; ~2x faster on a T4, no accuracy cost here
+
+# --- loss ---------------------------------------------------------------
+# Dice-heavy (bce_weight < 0.5): roads are ~5-10% of pixels, so plain BCE lets
+# the model score well by predicting background. See src/losses.py.
+bce_weight: 0.3
+
+# --- evaluation ---------------------------------------------------------
+tile_overlap: 64   # overlap between sliding-window tiles at full-image eval
+close_kernel: 5    # morphological closing kernel (post-processing)
+min_area: 64       # drop connected components smaller than this many pixels

@@ -1,0 +1,8 @@
+# configs/dlinknet.yaml
+# D-LinkNet34 - the 2018 DeepGlobe challenge winner. Trained at the SAME budget
+# as mit_b0_scaled so the comparison isolates architecture, not compute.
+name: dlinknet
+arch: dlinknet
+encoder_name: resnet34
+train_size: 2000
+epochs: 18

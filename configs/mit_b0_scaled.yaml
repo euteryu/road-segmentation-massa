@@ -1,0 +1,9 @@
+# configs/mit_b0_scaled.yaml
+# The scale-up run: best encoder from the fixed-budget sweep, given real data.
+# ~2000 training images and 18 epochs is where most of the gap to the published
+# ~0.63 IoU actually closes - architecture was never the bottleneck at 400 images.
+name: mit_b0_scaled
+arch: unet
+encoder_name: mit_b0
+train_size: 2000
+epochs: 18

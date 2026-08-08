@@ -1,0 +1,9 @@
+# torch / torchvision are preinstalled on Kaggle GPU images - do NOT pin them here,
+# reinstalling costs several minutes and can break the CUDA build.
+segmentation-models-pytorch>=0.3.3
+timm>=0.9.16
+albumentations>=1.4.0
+opencv-python-headless>=4.9.0
+PyYAML>=6.0
+numpy>=1.24
+tqdm>=4.66

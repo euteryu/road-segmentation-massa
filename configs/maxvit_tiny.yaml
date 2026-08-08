@@ -1,9 +1,7 @@
 # configs/maxvit_tiny.yaml
+# MaxViT's windowed attention is built for a fixed input size, which is exactly
+# why full-image evaluation here goes through sliding-window tiling at crop_size
+# rather than feeding the raw 1024px image.
 name: maxvit_tiny
+arch: unet
 encoder_name: tu-maxvit_tiny_tf_224
-data_root: /kaggle/input/deepglobe-road-extraction-dataset/train
-subset_size: 400
-crop_size: 256
-batch_size: 16
-epochs: 6
-lr: 0.0003
