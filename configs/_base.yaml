@@ -2,7 +2,9 @@
 # Shared defaults. Every other config in this folder is layered on top of this,
 # so a change that should apply everywhere is a one-line edit here.
 
-data_root: /kaggle/input/deepglobe-road-extraction-dataset/train
+# Confirmed Kaggle mount path. If it ever changes, src/data/splits.py falls back
+# to searching /kaggle/input for a directory holding both *_sat.jpg and *_mask.png.
+data_root: /kaggle/input/datasets/balraj98/deepglobe-road-extraction-dataset/train
 seed: 42
 
 # --- data ---------------------------------------------------------------
