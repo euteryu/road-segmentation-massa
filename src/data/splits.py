@@ -16,15 +16,78 @@ folders ship without public masks, so they cannot be scored offline.
 """
 import os
 import random
+from pathlib import Path
+
+KAGGLE_INPUT = Path("/kaggle/input")
+
+
+def _looks_like_train_dir(path: Path) -> bool:
+    """A usable training directory has BOTH satellite images and masks.
+
+    Requiring masks is what distinguishes DeepGlobe's `train/` from its `valid/`
+    and `test/` folders - those ship satellite images with no public labels, so
+    matching on `*_sat.jpg` alone would happily pick an unusable directory.
+    """
+    return (
+        next(path.glob("*_sat.jpg"), None) is not None
+        and next(path.glob("*_mask.png"), None) is not None
+    )
+
+
+def find_data_root(max_depth: int = 4):
+    """Breadth-first search of /kaggle/input for a labelled training directory.
+
+    Kaggle's mount path depends on how the dataset was attached (slug, owner
+    prefix, nesting), and it is not worth losing a session to a path typo -
+    especially since a wrong path only surfaces after the environment has
+    already been set up.
+    """
+    if not KAGGLE_INPUT.is_dir():
+        return None
+
+    level = [KAGGLE_INPUT]
+    for _ in range(max_depth):
+        children = []
+        for directory in level:
+            try:
+                entries = sorted(p for p in directory.iterdir() if p.is_dir())
+            except OSError:
+                continue
+            for child in entries:
+                if _looks_like_train_dir(child):
+                    return child
+                children.append(child)
+        if not children:
+            break
+        level = children
+    return None
+
+
+def resolve_data_root(configured: str) -> str:
+    """Use the configured path if it exists, otherwise autodetect and report."""
+    if configured and os.path.isdir(configured):
+        return configured
+
+    found = find_data_root()
+    if found is None:
+        available = (
+            ", ".join(sorted(p.name for p in KAGGLE_INPUT.iterdir()))
+            if KAGGLE_INPUT.is_dir() else "(no /kaggle/input on this machine)"
+        )
+        raise FileNotFoundError(
+            f"data_root does not exist: {configured}\n"
+            f"Autodetection found no directory containing both *_sat.jpg and "
+            f"*_mask.png.\nAttached datasets: {available}\n"
+            f"Attach the DeepGlobe dataset, or set data_root in configs/_base.yaml."
+        )
+
+    print(f"[splits] data_root '{configured}' not found; using autodetected '{found}'")
+    return str(found)
 
 
 def list_image_ids(root_dir: str) -> list:
     if not os.path.isdir(root_dir):
-        raise FileNotFoundError(
-            f"data_root does not exist: {root_dir}\n"
-            "On Kaggle, check the dataset is attached and the path matches "
-            "/kaggle/input/<dataset-slug>/train"
-        )
+        raise FileNotFoundError(f"data_root does not exist: {root_dir}")
     ids = sorted(
         f[: -len("_sat.jpg")] for f in os.listdir(root_dir) if f.endswith("_sat.jpg")
     )

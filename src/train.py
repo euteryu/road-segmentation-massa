@@ -13,7 +13,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from src.data.dataset import RoadDataset
-from src.data.splits import make_split
+from src.data.splits import make_split, resolve_data_root
 from src.data.transforms import get_full_image_transform, get_train_transform, get_val_transform
 from src.engine import dump_predictions, train_one_epoch, validate_crops
 from src.evaluate import evaluate_predictions
@@ -28,6 +28,9 @@ log = get_logger()
 
 
 def build_loaders(cfg):
+    # Mutates cfg so the resolved path is also what evaluation reads ground-truth
+    # masks from later, and so it lands in the saved result json.
+    cfg["data_root"] = resolve_data_root(cfg["data_root"])
     train_ids, val_ids = make_split(
         cfg["data_root"], cfg["train_size"], cfg["val_size"], cfg["seed"]
     )

@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 from tqdm.auto import tqdm
 
-from src.data.splits import make_split
+from src.data.splits import make_split, resolve_data_root
 from src.metrics import BinaryConfusion, ThresholdSweep
 from src.postprocess import postprocess_mask
 from src.utils import load_config, save_json
@@ -77,6 +77,7 @@ def main():
     args = parser.parse_args()
 
     cfg = load_config(args.config or f"configs/{args.name}.yaml")
+    cfg["data_root"] = resolve_data_root(cfg["data_root"])
     _, val_ids = make_split(cfg["data_root"], cfg["train_size"], cfg["val_size"], cfg["seed"])
 
     report = evaluate_predictions(
