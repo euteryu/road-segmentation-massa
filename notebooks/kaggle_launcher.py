@@ -1,10 +1,14 @@
 # Kaggle notebook - paste this as a SINGLE cell.
 # Everything else lives in the repo, version-controlled and diffable.
 
-# 1. Fresh code every session (~30s). Kaggle wipes /kaggle/working between sessions;
-#    only the GPU-heavy part is worth being careful about, not this.
-!rm -rf /kaggle/working/road-segmentation-massa
-!git clone -q https://github.com/euteryu/road-segmentation-massa.git /kaggle/working/road-segmentation-massa
+# 1. Step OUT of the repo before deleting it. On a re-run the kernel is still
+#    sitting inside road-segmentation-massa from last time, and removing the
+#    directory you are standing in leaves the process with no working directory -
+#    after which every shell command fails with "getcwd: cannot access parent
+#    directories" until you chdir somewhere that exists.
+%cd /kaggle/working
+!rm -rf road-segmentation-massa
+!git clone -q https://github.com/euteryu/road-segmentation-massa.git
 %cd /kaggle/working/road-segmentation-massa
 !pip install -q -r requirements.txt
 
