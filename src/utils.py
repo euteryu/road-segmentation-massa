@@ -56,6 +56,7 @@ def output_dirs(name: str, root: str = "outputs") -> dict:
         "results": Path(root) / "results",
         "checkpoints": Path(root) / "checkpoints",
         "preds": Path(root) / "preds" / name,
+        "figures": Path(root) / "figures" / name,
         "logs": Path(root) / "logs",
     }
     for p in paths.values():

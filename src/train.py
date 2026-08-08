@@ -7,6 +7,7 @@ Usage (single run):
 """
 import argparse
 import time
+import traceback
 from pathlib import Path
 
 import torch
@@ -139,6 +140,21 @@ def run_experiment(cfg: dict) -> dict:
         min_area=cfg.get("min_area", 64),
     )
 
+    # Qualitative output. Wrapped because a plotting bug must never destroy the
+    # numbers from a run that already cost GPU minutes - same reasoning as the
+    # per-config try/except in main.py.
+    per_image = []
+    try:
+        from src.visualize import make_figures
+
+        per_image = make_figures(
+            name, dirs["preds"], cfg["data_root"], val_ids, report, dirs["figures"],
+            close_kernel=cfg.get("close_kernel", 5),
+            min_area=cfg.get("min_area", 64),
+        )
+    except Exception:
+        log.warning(f"[{name}] figure generation failed (metrics unaffected):\n{traceback.format_exc()}")
+
     result = {
         "name": name,
         "arch": cfg.get("arch", "unet"),
@@ -152,6 +168,7 @@ def run_experiment(cfg: dict) -> dict:
         "infer_time_sec": round(infer_time, 1),
         "best_val_iou_crop": round(best_iou, 4),
         "full_image_eval": report,
+        "per_image_iou": per_image,
         "history": history,
         "env": env_summary(),
     }
