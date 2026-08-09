@@ -398,7 +398,7 @@ and a test set exists. → E6, then E5.
 
 ---
 
-## E8 — Standalone inference: closing half of E6 (2026-08-09) — *code landed, unrun*
+## E8 — Standalone inference: closing half of E6 (2026-08-09)
 
 **Question.** Not a science question — a measurement-apparatus one. E4's +0.0217
 could not separate TTA from overlap from training variance, and E7 could only be
@@ -446,7 +446,55 @@ not do: one checkpoint, TTA off vs on, overlap 64 vs 128.
 **Cost.** Two 3-minute inference runs against one existing checkpoint. No
 training. Kaggle needs the prior version's output attached as a dataset.
 
-**Not yet run.** → then E5.
+**Result** (run 2026-08-09, same session as one fresh training run — no prior
+checkpoint was attached, so the frozen weights came from an 11.7-min 2,000-image
+run in the same kernel: best crop IoU 0.5218 @ epoch 12). Three inference passes
+over those weights:
+
+| tag | TTA | overlap | infer time | raw@0.50 | tuned | postproc |
+|---|---|---|---|---|---|---|
+| base | on | 128 | 3m00s | 0.5582 | 0.5585 @ 0.45 | 0.5616 |
+| no_tta | off | 128 | 26s | 0.5422 | 0.5422 @ 0.50 | 0.5455 |
+| ov64 | off | 64 | 17s | 0.5413 | 0.5413 @ 0.50 | 0.5447 |
+
+Paired, at the fixed 0.50 threshold: **TTA +0.0160, overlap 128 +0.0009.** Both
+deltas are stable to ±0.0003 across all three scoring stages.
+
+Apparatus check passed: the `base` tag (no overrides) reproduced the training
+run's own eval to all four decimals at every stage, so the checkpoint round-trip
+through `src/predict.py` is exact — the thing E8 was built to guarantee.
+
+**Read.** One hit, one miss.
+
+- TTA, predicted +0.010 to +0.018 → **+0.0160, hit**, upper half of the band.
+- Overlap, predicted +0.002 to +0.005 → **+0.0009, miss, below the band.**
+  Indistinguishable from zero and an order of magnitude below its cost (1.5×
+  inference time). Overlap 128 was adopted inside E4's bundle without ever being
+  measured on its own; measured, it is nothing. "More votes at tile seams" was a
+  mechanism, not a magnitude — and with 8× TTA already averaging every pixel,
+  the extra seam votes were probably redundant from the start.
+
+The pre-registered sum test can't be applied as literally as written: E4's
++0.0217 was at 6,026 images, this checkpoint is at 2,000. The at-scale
+comparison is E7's side observation — the same bundle measured *unpaired* at
+2,000 images gave +0.0138, where this paired run gives +0.0172. The ~0.003
+disagreement is the size of the training-variance spread quoted in E4.
+Everything is consistent with one story: **the E4 gain is TTA, full stop.**
+
+Two tallies updated in passing: threshold tuning came back 0.45 for a fifth
+run, buying +0.0003 — still wobble, still dead. And this run vs E7's run of the
+identical config (raw 0.5582 vs 0.5632) is a second observation of training
+variance on the full-image metric: **~0.005**, larger than the ~0.003 crop-metric
+spread, and larger than several deltas this logbook cares about. That number is
+the strongest argument yet for finishing E5 and quantifying variance properly.
+
+**Decision.** `tile_overlap: 64` becomes the default in `_base.yaml`; TTA stays.
+The 0.5971 headline stands as measured — it used overlap 128, and +0.0009 does
+not buy a re-run to purify it. One recorded caveat: overlap was ablated with TTA
+*off*, so a TTA×overlap interaction is formally unmeasured — implausible, since
+both work by adding votes and votes are redundant, but unmeasured is unmeasured.
+The inference half of E6 is closed. Next: E5's test-set carve, now the oldest
+open item and the first thing a reviewer would ask about. → E5.
 
 ---
 
@@ -459,11 +507,12 @@ training. Kaggle needs the prior version's output attached as a dataset.
 | epochs | **spent** — plateaus by ~12–14 | E1, E2 |
 | threshold tuning | **dead** — no-op at two data scales | E1, E2 |
 | post-processing | **spent** — +0.0028 paired at correct scale; surface is flat | E7 |
-| TTA + tile overlap | **settled — +0.0217, adopted**; +0.0138 again at 2,000 imgs | E4, E7 |
+| TTA | **settled — +0.0160 paired**; the whole of E4's bundle gain | E4, E7, E8 |
+| tile overlap 128 | **dead — +0.0009 paired**; default reverted to 64 | E8 |
 | crop size (context) | open — targets the ~7-image tail, not the bulk | E3 |
 | boundary-weighted loss | open, untried | E3 |
 | held-out test set | open, planned | E5 |
-| standalone inference (paired ablations) | **built, unrun** — `src/predict.py` | E6 → E8 |
+| standalone inference (paired ablations) | **done** — round-trip exact, first ablation delivered | E8 |
 | training reproducibility | open — `cudnn.benchmark`, weakens every Δ above | E6 |
 | cross-dataset generalization | open, optional | E5 + protocol doc |
 
@@ -476,6 +525,7 @@ training. Kaggle needs the prior version's output attached as a dataset.
 | E2 | → 6,026 imgs | 0.5754 |
 | E4 | → 8× TTA, overlap 128 | **0.5971** |
 | E7 | → post-proc 9/500 | *(+0.0028, measured at 2,000 imgs; headline unchanged)* |
+| E8 | *(paired decomposition at 2,000 imgs: TTA +0.0160, overlap +0.0009)* | *(headline unchanged)* |
 
 Published D-LinkNet on DeepGlobe is ~0.63, at full-image training rather than
 256px crops.

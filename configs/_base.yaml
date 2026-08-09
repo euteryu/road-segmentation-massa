@@ -30,9 +30,11 @@ bce_weight: 0.3
 
 # --- evaluation ---------------------------------------------------------
 # Error on this task is dominated by boundary placement on thin structures, not by
-# missed roads (see outputs/figures/*/example_median_*.png). Both of these attack
-# that, at inference cost only - no retraining.
-tile_overlap: 128  # overlap between sliding-window tiles; 25 -> 49 tiles per image
+# missed roads (see outputs/figures/*/example_median_*.png). TTA attacks that at
+# inference cost only - no retraining. E8's paired ablation put the whole E4 gain
+# on TTA (+0.0160) and none on overlap 128 (+0.0009 for 1.5x inference time), so
+# overlap is back at 64. Do not raise it again without a paired reason.
+tile_overlap: 64   # overlap between sliding-window tiles
 tta: true          # average over the 8 square symmetries the training aug uses
 # Grid-searched at 1024px in E7 (src/sweep_postproc.py). Worth only +0.0028, but
 # free - the surface is flat from area 0..1000 and only turns negative at 2000,

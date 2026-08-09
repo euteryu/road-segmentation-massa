@@ -43,6 +43,9 @@ past run. That is where cheap experiments live.
   perfectly paired comparison, and the surface is flat. Adopted in `_base.yaml`
   because it's free. Do not re-tune it — it targets isolated blobs, and this
   model's error is parallel boundary fringe.
+- **E4's gain is TTA alone.** E8's paired ablation on one frozen checkpoint:
+  TTA **+0.0160**, tile overlap 128 **+0.0009** (dead; `_base.yaml` reverted to
+  64). TTA costs 7× inference time — keep it for scored runs, skip for smoke.
 - **Data is spent.** 6,026 training images is everything after the 200-image val
   holdout.
 - **Epochs are spent.** Plateaus by ~epoch 15; val_loss flat to 4 decimals.
