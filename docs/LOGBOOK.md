@@ -334,6 +334,122 @@ recorded here so the name doesn't mislead later.
 
 ---
 
+## E7 — Post-processing at the correct scale: the lever is dead (2026-08-09)
+
+**Question.** E1 blamed the flat post-processing result on a units mistake —
+`min_area: 64` and `close_kernel: 5` were sized for 256px crops but applied to
+1024px images, where 64 px is 0.006% of the frame. Was the stage genuinely
+worthless, or just mis-tuned by ~16× in area?
+
+**Change.** `src/sweep_postproc.py` — a 4×5 grid (kernels 1/5/9/11, areas
+0/64/500/1000/2000) scored against saved probability maps. Pure CPU, and
+**perfectly paired**: every cell scores the *same* prob maps from the *same*
+checkpoint, so training variance — the thing that muddied E4 — cannot touch this
+Δ. The ±0.02 cross-run noise floor does not apply here; a paired Δ of a few
+thousandths is real, it is just small.
+
+The predictions came from a fresh 2,000-image / 18-epoch run (11.6 min) rather
+than the 6,026-image E4 checkpoint, because E6 is still open and there is no way
+to re-run inference alone.
+
+**Implied prediction** (from E1, not separately pre-registered): scaling the
+constants to 1024px should recover something meaningful — E1's +0.0006 was
+supposed to be a units bug, not a verdict.
+
+**Result.** Best cell `close_kernel=9, min_area=500` → **0.5660**, vs 0.5632 with
+no post-processing at all. **+0.0028.** Recall 0.7185, precision 0.7273.
+
+The shape matters more than the winner, and the shape is **flat**: every cell
+from area 0 to 1000 sits within 0.003 of every other, across all four kernels.
+The only real movement in the grid is *downward* at area 2000 (−0.007), where the
+floor starts eating genuine road stubs.
+
+**Read.** **Miss — the units bug was not hiding a gain.** Correctly scaled, the
+stage is worth +0.0028, an order of magnitude below what TTA bought for the same
+zero training cost. The lever moves from "untested at correct scale" to **spent**.
+
+Why it's flat, in hindsight: E3 showed the error is boundary placement running
+*parallel* along real roads, not scattered blobs. Small-component removal deletes
+isolated islands and closing bridges gaps — neither operation moves an edge that
+is 2px too wide. Post-processing is aimed at a failure mode this model does not
+have. The +0.0028 is presumably the ~7-image semantic-confusion tail, where a
+traced riverbed is a large connected blob that no area floor would remove either.
+
+Two side observations from the same run:
+
+1. **A second, unpaired TTA confirmation.** This run is E1's exact config
+   (2,000 images, 18 epochs) plus TTA and overlap 128: 0.5494 → 0.5632 raw,
+   **+0.0138** at a data scale where E4's +0.0217 was measured at 6,026. Two
+   different data scales, same direction, comparable magnitude. Different
+   checkpoints again, so still not a clean ablation — but TTA is now the
+   best-supported result in this logbook.
+2. **Threshold tuning, fourth run.** `best_thr` came back **0.45** this time,
+   not 0.50 — and bought +0.0001. That is the lever wobbling inside its own
+   noise, not waking up. Still dead.
+
+**Decision.** Adopt `close_kernel: 9, min_area: 500` in `configs/_base.yaml` —
+it is free and non-negative — and stop touching this stage. Do **not** re-run
+inference at 6,026 just to re-confirm; a +0.0028 paired gain does not justify
+31 GPU-minutes. Every remaining cheap-inference idea is now exhausted, which
+promotes E6 (standalone inference) from "nice architecture" to the actual
+blocker: the next real levers (boundary-weighted loss, crop size) all require
+retraining, and none of them can be measured cleanly until inference is paired
+and a test set exists. → E6, then E5.
+
+---
+
+## E8 — Standalone inference: closing half of E6 (2026-08-09) — *code landed, unrun*
+
+**Question.** Not a science question — a measurement-apparatus one. E4's +0.0217
+could not separate TTA from overlap from training variance, and E7 could only be
+trusted *because* it was paired. Every remaining lever is worth less than the
+noise that the apparatus currently injects. Fix the apparatus.
+
+**Change.** `src/predict.py` — loads a frozen checkpoint and runs
+dump_predictions → evaluate → figures, with no training loop anywhere in the
+path. Inference settings are CLI overrides (`--tta/--no-tta`, `--tile-overlap`,
+`--close-kernel`, `--min-area`), and `--tag` gives each variant its own
+`outputs/preds/<name>__<tag>/` so two settings of one checkpoint can be held side
+by side instead of overwriting each other.
+
+Three decisions worth recording:
+
+- **The architecture is rebuilt from the checkpoint's own stored `cfg`, not from
+  `configs/<name>.yaml`.** The yaml drifts after weights are written — that is
+  the point of freezing a checkpoint — and a `state_dict` loaded against a
+  drifted encoder either throws a wall of shape errors or, worse, loads
+  partially and silently scores a half-random model.
+- `encoder_weights=None` when loading, so it doesn't download ImageNet weights it
+  is about to overwrite.
+- Checkpoints are autodetected under `/kaggle/input/**/checkpoints/<name>.pth`,
+  same reasoning as `find_data_root`: on Kaggle the mount path depends on how the
+  dataset was attached, and a path typo costs a session.
+
+This closes **half** of E6. The other half — `cudnn.benchmark = True`, so no two
+*training* runs are identical — is untouched and deliberately so: pairing the
+inference side removes variance from the comparisons that were actually being
+confounded, and it costs 3 minutes instead of 31.
+
+**Prediction, recorded before running.** The first use is the ablation E4 could
+not do: one checkpoint, TTA off vs on, overlap 64 vs 128.
+
+- TTA alone: **+0.010 to +0.018**. E4 measured +0.0217 at 6,026 images and E7
+  +0.0138 at 2,000, both with the overlap change and a different checkpoint
+  folded in. Paired, I expect it to land inside that pair rather than above it.
+- Overlap 64 → 128 alone: **+0.002 to +0.005** — real but small, since it only
+  adds votes near tile seams, and seams are a minority of the pixels where E3
+  located the error.
+- The two should roughly sum to E4's +0.0217. **If they sum to noticeably less,
+  the residual was training variance** — which would retroactively weaken E4 and
+  is exactly the thing worth knowing.
+
+**Cost.** Two 3-minute inference runs against one existing checkpoint. No
+training. Kaggle needs the prior version's output attached as a dataset.
+
+**Not yet run.** → then E5.
+
+---
+
 ## Ledger of levers
 
 | lever | status | evidence |
@@ -342,12 +458,13 @@ recorded here so the name doesn't mislead later.
 | training data volume | **spent** — all 6,026 used | E2 |
 | epochs | **spent** — plateaus by ~12–14 | E1, E2 |
 | threshold tuning | **dead** — no-op at two data scales | E1, E2 |
-| post-processing | **untested at correct scale** — constants sized for 256px, applied at 1024px | E1 |
-| TTA + tile overlap | **settled — +0.0217, adopted** | E4 |
+| post-processing | **spent** — +0.0028 paired at correct scale; surface is flat | E7 |
+| TTA + tile overlap | **settled — +0.0217, adopted**; +0.0138 again at 2,000 imgs | E4, E7 |
 | crop size (context) | open — targets the ~7-image tail, not the bulk | E3 |
 | boundary-weighted loss | open, untried | E3 |
 | held-out test set | open, planned | E5 |
-| reproducibility + standalone inference | open — weakens every Δ above | E6 |
+| standalone inference (paired ablations) | **built, unrun** — `src/predict.py` | E6 → E8 |
+| training reproducibility | open — `cudnn.benchmark`, weakens every Δ above | E6 |
 | cross-dataset generalization | open, optional | E5 + protocol doc |
 
 ## Score history
@@ -358,6 +475,7 @@ recorded here so the name doesn't mislead later.
 | E1 | MiT-B0, 2,000 imgs | 0.5494 |
 | E2 | → 6,026 imgs | 0.5754 |
 | E4 | → 8× TTA, overlap 128 | **0.5971** |
+| E7 | → post-proc 9/500 | *(+0.0028, measured at 2,000 imgs; headline unchanged)* |
 
 Published D-LinkNet on DeepGlobe is ~0.63, at full-image training rather than
 256px crops.

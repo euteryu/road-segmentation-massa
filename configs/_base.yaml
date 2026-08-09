@@ -34,5 +34,8 @@ bce_weight: 0.3
 # that, at inference cost only - no retraining.
 tile_overlap: 128  # overlap between sliding-window tiles; 25 -> 49 tiles per image
 tta: true          # average over the 8 square symmetries the training aug uses
-close_kernel: 5    # morphological closing kernel (post-processing)
-min_area: 64       # drop connected components smaller than this many pixels
+# Grid-searched at 1024px in E7 (src/sweep_postproc.py). Worth only +0.0028, but
+# free - the surface is flat from area 0..1000 and only turns negative at 2000,
+# where the floor starts eating genuine road stubs. Do not re-tune this.
+close_kernel: 9    # morphological closing kernel (post-processing)
+min_area: 500      # drop connected components smaller than this many pixels

@@ -17,6 +17,7 @@ main.py                  launcher; loops configs, calls run_experiment
 configs/_base.yaml       shared defaults; per-model files override only what differs
 src/train.py             run_experiment(cfg) = one experiment, end to end
 src/engine.py            train_one_epoch, validate_crops, dump_predictions (tiled + TTA)
+src/predict.py           frozen checkpoint -> preds + scores + figures; NO training
 src/evaluate.py          score saved prob maps at one setting  (CPU, standalone)
 src/sweep_postproc.py    score saved prob maps over a grid     (CPU, standalone)
 src/visualize.py         error maps, threshold curve, IoU distribution (CPU, standalone)
@@ -35,8 +36,13 @@ past run. That is where cheap experiments live.
   commit `daa4257` (the "0.39") used the old metric — never quote a delta
   against it.
 - **Threshold tuning is dead.** `best_thr` came back 0.50 on three separate
-  converged runs. Dice-heavy loss (`bce_weight: 0.3`) leaves the model
-  calibrated. Not a bug.
+  converged runs, and 0.45 on a fourth for +0.0001. Dice-heavy loss
+  (`bce_weight: 0.3`) leaves the model calibrated. Not a bug.
+- **Post-processing is spent.** Grid-searched at the correct 1024px scale in E7:
+  best cell (`close_kernel: 9`, `min_area: 500`) is worth **+0.0028** on a
+  perfectly paired comparison, and the surface is flat. Adopted in `_base.yaml`
+  because it's free. Do not re-tune it — it targets isolated blobs, and this
+  model's error is parallel boundary fringe.
 - **Data is spent.** 6,026 training images is everything after the 200-image val
   holdout.
 - **Epochs are spent.** Plateaus by ~epoch 15; val_loss flat to 4 decimals.
@@ -48,9 +54,12 @@ past run. That is where cheap experiments live.
   and does not request deterministic algorithms (`src/utils.py:26`). E2 and E4
   had identical data/seed/schedule and landed on different checkpoints. Spread on
   the selection metric is ~0.003 — quote that when a delta is small.
-- **Every experiment currently retrains** (~31 min) even when only inference or
-  scoring changed. That is E6, still open, and it is why sweeps over saved
-  predictions are worth so much more than they look.
+- **Inference-side changes must not go through `main.py`.** `run_experiment`
+  always retrains (~31 min) and `cudnn.benchmark` gives you a different
+  checkpoint, so the Δ you measure is your change *plus* training variance —
+  that is what left E4 unable to separate TTA from overlap. Use
+  `python -m src.predict --name X --tag Y ...` instead: one frozen checkpoint,
+  ~3 min, genuinely paired. Only the *training* half of E6 is still open.
 
 ## Where the error actually is
 

@@ -12,18 +12,22 @@
 %cd /kaggle/working/road-segmentation-massa
 !pip install -q -r requirements.txt
 
-# 2. Sanity check first - 1 epoch on 64 images, ~1 min. Catches a broken path or
-#    a bad config before you spend 40 minutes finding out.
-!python main.py --only mit_b0_scaled --epochs 1 --train-size 64
+# ---------------------------------------------------------------------------
+# E8: the paired TTA/overlap ablation. Needs a checkpoint, NOT a training run.
+#
+# Attach a previous version's output as a dataset (Add Input -> Your Work ->
+# the version whose log ends in "training done"); src/predict.py autodetects it
+# under /kaggle/input/**/checkpoints/. Each --tag writes its own preds dir, so
+# all three score the SAME weights and the deltas are attributable to the flag
+# and nothing else. ~3 min each, no GPU spent on training.
+# ---------------------------------------------------------------------------
+!python -m src.predict --name mit_b0_scaled --tag base                        # tta on,  overlap 128
+!python -m src.predict --name mit_b0_scaled --tag no_tta  --no-tta            # tta OFF, overlap 128
+!python -m src.predict --name mit_b0_scaled --tag ov64    --no-tta --tile-overlap 64  # neither
 
-# 3. The real run. Watch the "~Xm left" estimate printed after epoch 1; if it is
-#    more than you want to sit through, interrupt and rerun with fewer epochs -
-#    the best checkpoint so far is already on disk either way.
-!python main.py
+# If no checkpoint is attached, predict exits immediately with the list of
+# attached datasets - uncomment to retrain one first (~12 min at train_size 2000),
+# then re-run the three lines above.
+# !python main.py --only mit_b0_scaled
 
-# 4. Re-scoring costs no GPU and reads the predictions already saved in
-#    outputs/preds/, so every setting below scores the SAME probability maps -
-#    perfectly paired, immune to the training variance that muddies E4.
-!python -m src.sweep_postproc --name mit_b0_scaled
-
-# 5. Save Version (Quick Save) to persist outputs/ as a permanent snapshot.
+# Save Version (Quick Save) to persist outputs/ as a permanent snapshot.
