@@ -12,22 +12,26 @@
 %cd /kaggle/working/road-segmentation-massa
 !pip install -q -r requirements.txt
 
-# ---------------------------------------------------------------------------
-# E8: the paired TTA/overlap ablation. Needs a checkpoint, NOT a training run.
-#
-# Attach a previous version's output as a dataset (Add Input -> Your Work ->
-# the version whose log ends in "training done"); src/predict.py autodetects it
-# under /kaggle/input/**/checkpoints/. Each --tag writes its own preds dir, so
-# all three score the SAME weights and the deltas are attributable to the flag
-# and nothing else. ~3 min each, no GPU spent on training.
-# ---------------------------------------------------------------------------
-!python -m src.predict --name mit_b0_scaled --tag base                        # tta on,  overlap 128
-!python -m src.predict --name mit_b0_scaled --tag no_tta  --no-tta            # tta OFF, overlap 128
-!python -m src.predict --name mit_b0_scaled --tag ov64    --no-tta --tile-overlap 64  # neither
+# 2. Train once (~12 min at train_size 2000) to produce the checkpoint the
+#    ablation below is measured on. Skip this line and attach a previous
+#    version's output instead (Add Input -> Notebook Output) if you already have
+#    one - src/predict.py autodetects /kaggle/input/**/checkpoints/*.pth.
+!python main.py --only mit_b0_scaled
 
-# If no checkpoint is attached, predict exits immediately with the list of
-# attached datasets - uncomment to retrain one first (~12 min at train_size 2000),
-# then re-run the three lines above.
-# !python main.py --only mit_b0_scaled
+# 3. E8: the paired ablation E4 could not do. All three load the SAME frozen
+#    weights, so each delta is attributable to the flag and nothing else - no
+#    retraining, and none of the cudnn.benchmark variance that made E4's +0.0217
+#    impossible to split. ~3 min each.
+!python -m src.predict --name mit_b0_scaled --tag base                                # tta on,  overlap 128
+!python -m src.predict --name mit_b0_scaled --tag no_tta --no-tta                     # tta OFF, overlap 128
+!python -m src.predict --name mit_b0_scaled --tag ov64   --no-tta --tile-overlap 64   # neither
 
-# Save Version (Quick Save) to persist outputs/ as a permanent snapshot.
+# TTA         = base   - no_tta
+# overlap     = no_tta - ov64
+# Compare the sum against E4's +0.0217; the shortfall was training variance.
+
+# No post-processing sweep this time: E7 settled that stage (+0.0028, flat
+# surface) and _base.yaml already carries its winner.
+
+# 4. Save Version -> Save & Run All (Commit). ~21 min total, so NOT the
+#    interactive session: interactive /kaggle/working is discarded on tab close.
