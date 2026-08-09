@@ -21,8 +21,9 @@
 #    the best checkpoint so far is already on disk either way.
 !python main.py
 
-# 4. Re-scoring costs no GPU. Tune post-processing as many times as you like
-#    against the predictions already saved in outputs/preds/.
-# !python -m src.evaluate --name mit_b0_scaled --min-area 128 --close-kernel 7
+# 4. Re-scoring costs no GPU and reads the predictions already saved in
+#    outputs/preds/, so every setting below scores the SAME probability maps -
+#    perfectly paired, immune to the training variance that muddies E4.
+!python -m src.sweep_postproc --name mit_b0_scaled
 
 # 5. Save Version (Quick Save) to persist outputs/ as a permanent snapshot.
