@@ -9,6 +9,10 @@ structures.
 Dataset: [DeepGlobe Road Extraction](https://www.kaggle.com/datasets/balraj98/deepglobe-road-extraction-dataset)
 (1024×1024 satellite tiles, `<id>_sat.jpg` + `<id>_mask.png`).
 
+**📄 [Read the report](docs/REPORT.md)** — what moved the number and what
+didn't, with figures. The raw experiment history, including the wrong
+predictions, is in [docs/LOGBOOK.md](docs/LOGBOOK.md).
+
 ## Running it
 
 ```bash
